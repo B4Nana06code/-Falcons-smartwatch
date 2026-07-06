@@ -1,0 +1,433 @@
+% !TeX program = xelatex
+% ==============================================================================
+% 广东工业大学  嵌入式系统课程 设计 个人总结报告
+% 项目名称：Falcons-smartwatch 基于STM32F103C8T6的智能手表
+% ==============================================================================% 
+\documentclass[12pt, a4paper]{ctexart}
+\usepackage{GDUTReport}
+\setstretch{1.5}
+\setmainfont{Times New Roman}
+% ======================个人信息 ======================
+{
+    \title{嵌入式系统课程设计报告}
+    \subtitle{基于STM32F103C8T6的智能手表设计与实现}
+    \name{王宇哲}
+    \thenumber{3124009576}
+    \major{微电子科学与工程}
+    \class{24级1班}
+    \team{Falcons}
+    \teammate{廖俊帆、朱玺望}
+    \teacher{周贤中}
+}
+% ======================================================================
+
+\begin{document}
+\pagenumbering{gobble}
+\makecover
+
+\newpage
+\begin{abstract}
+本文介绍了嵌入式系统课程设计项目——Falcons-smartwatch基于STM32F103C8T6的智能手表系统设计与实现。
+项目采用分阶段模块化迭代开发策略，以STM32F103C8T6最小系统板为主控，集成0.96寸OLED显示屏、MPU6050六轴传感器、HC-04蓝牙模块、EC11旋转编码器等外设，
+基于FreeRTOS实时操作系统实现多任务调度，完成了时间显示、姿态检测、计步功能、蓝牙通信、多级菜单等核心功能。
+本人作为小组测试负责人，主导了物料采购、测试方案制定、功能测试、bug跟踪与验证工作，同时参与了蓝牙模块驱动开发与功能调试。
+项目在面包板硬件平台上完成全部功能验证，系统运行稳定，达到了课程设计预期目标。
+\par
+\textbf{关键词：} STM32F103C8T6；智能手表；FreeRTOS；软件测试；蓝牙通信；功能验证
+\end{abstract}
+\clearpage
+
+\tableofcontents
+\clearpage
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ==================== 第1章 项目简介 ====================
+\section{项目简介}
+\subsection{项目背景}
+随着可穿戴设备技术的快速发展，智能手表作为典型的嵌入式物联网终端设备，集成了传感器技术、无线通信、实时操作系统、低功耗设计等多项嵌入式核心技术，
+是微电子专业学生综合运用嵌入式系统知识的理想实践项目。本项目以STM32F103C8T6微控制器为核心，设计并实现一款功能完整的开源智能手表原型，
+综合锻炼硬件电路设计、底层驱动开发、实时系统应用、多模块集成调试等嵌入式系统开发能力。
+
+本项目采用渐进式开发方法，每次只新增一个硬件模块，测试通过后再进入下一阶段，始终在已验证可用的基础上继续开发，有效降低了调试难度。
+
+\subsection{主要功能概述}
+本智能手表原型系统实现以下核心功能：
+\begin{enumerate}
+    \item \textbf{基础显示功能}：0.96寸OLED屏幕显示时间、传感器数据、步数、菜单等信息，支持4个页面切换；
+    \item \textbf{运动检测功能}：MPU6050六轴传感器采集加速度、陀螺仪数据，通过互补滤波实现姿态解算，基于峰值检测实现计步功能；
+    \item \textbf{无线通信功能}：HC-04蓝牙模块实现与手机APP的数据交互，支持传感器数据、步数数据实时上报；
+    \item \textbf{人机交互功能}：EC11旋转编码器配合按键实现页面切换、菜单选择等操作，支持硬件消抖；
+    \item \textbf{实时多任务调度}：基于FreeRTOS实现5个优先级任务并行调度，通过互斥锁、信号量、消息队列保证系统实时性与稳定性；
+    \item \textbf{电源管理}：TP4056充电管理配合AMS1117稳压，支持锂电池供电，10秒无操作自动熄屏低功耗。
+\end{enumerate}
+
+% ==================== 第2章 项目设计目标 ====================
+\section{项目设计目标}
+\subsection{总体设计目标}
+设计并实现一款基于STM32F103C8T6的可运行智能手表原型，完成从硬件选型、电路搭建到底层驱动、操作系统移植、应用功能开发的完整嵌入式开发流程，
+系统应具备良好的稳定性、实时性与可扩展性，达到嵌入式系统课程设计验收标准。
+
+\subsection{具体预期成果}
+\begin{enumerate}
+    \item \textbf{硬件目标}：完成所有外设模块的电路连接与调试，I2C总线多设备共享稳定，电源系统供电可靠，整机可独立锂电池运行；
+    \item \textbf{软件目标}：完成OLED、MPU6050、蓝牙、编码器底层驱动开发，移植FreeRTOS操作系统实现多任务调度，实现计步、菜单、蓝牙数据交互等应用功能；
+    \item \textbf{功能目标}：时间显示误差小于1s/天，姿态角检测平滑无跳变，蓝牙通信稳定无丢包，编码器操作响应及时无卡顿；
+    \item \textbf{文档目标}：完成系统设计文档、中期检查报告、个人总结报告等全套项目文档，代码规范注释清晰。
+\end{enumerate}
+
+% ==================== 第3章 项目设计与实现 ====================
+\section{项目设计与实现}
+\subsection{硬件设计}
+\subsubsection{系统总体架构}
+系统采用模块化分层设计，以STM32F103C8T6最小系统板为核心，外设按总线类型划分，避免资源冲突：
+\begin{itemize}
+    \item I2C1总线（PB6-SCL/PB7-SDA）：共享连接SSD1306 OLED显示屏与MPU6050六轴传感器，4.7kΩ上拉电阻；
+    \item USART1串口（PA9-TX/PA10-RX）：连接HC-04蓝牙模块，波特率115200，使用DMA方式收发数据；
+    \item TIM3定时器（PA6-CH1/PA7-CH2）：配置为正交编码器模式，采集EC11旋转信号；
+    \item EXTI外部中断（PB10）：检测编码器按键按下事件，上拉输入；
+    \item 电源链路：Type-C输入经TP4056充电管理给3.7V锂电池充电，电池经AMS1117-3.3V LDO稳压后给整个系统供电。
+\end{itemize}
+
+\subsubsection{关键模块选型}
+\begin{table}[htbp]
+\centering
+\caption{核心硬件模块选型}
+\label{tab:hw_select}
+\begin{tabular}{lll}
+\toprule
+模块 & 型号 & 选型理由 \\
+\midrule
+主控芯片 & STM32F103C8T6 & Cortex-M3内核72MHz，64KB Flash，资源丰富价格低廉，适合入门嵌入式开发 \\
+显示屏 & 0.96寸SSD1306 OLED & I2C接口仅需2根IO，自发光低功耗，128×64分辨率显示清晰 \\
+运动传感器 & MPU6050 GY-521 & 集成三轴加速度+三轴陀螺仪，I2C接口，姿态检测经典方案 \\
+蓝牙模块 & HC-04主从一体 & UART接口透传，AT指令配置简单，手机兼容性好 \\
+旋转编码器 & EC11 & 带按键，正交编码输出，20脉冲每圈，适合手表菜单交互 \\
+电源管理 & TP4056+AMS1117 & 成熟锂电池充电+3.3V稳压方案，外围电路简单，可靠性高 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{电路关键参数设计}
+\begin{itemize}
+    \item I2C总线：4.7kΩ上拉电阻匹配3.3V电平，保证400kHz Fast Mode通信稳定；
+    \item 编码器硬件消抖：EC11的A/B相各并联100nF陶瓷电容，滤除机械触点抖动；
+    \item LDO稳压：AMS1117-3.3最大输出电流1A，满足整机约30mA正常工作电流需求；
+    \item 定时器参数：TIM2预分频7199、周期999，产生10ms定时中断；TIM3预分频0、周期65535，正交编码不溢出；
+    \item 电池续航：2000mAh锂电池理论续航约66小时，熄屏模式下约15mA电流，续航可达133小时。
+\end{itemize}
+
+\subsection{软件设计}
+\subsubsection{软件分层架构}
+软件采用三层模块化架构，各层独立封装，新增模块单独测试通过后再集成，便于调试与移植：
+\begin{enumerate}
+    \item \textbf{底层驱动层}：各外设独立.c/.h文件封装，包括ssd1306.c/h显示驱动、mpu6050.c/h传感器驱动、bluetooth.c/h蓝牙驱动、encoder.c/h编码器驱动、timekeep.c/h计时驱动；
+    \item \textbf{操作系统层}：FreeRTOS配置与封装，包括任务创建、互斥锁、信号量、消息队列等同步互斥机制，使用heap\_4内存管理方案；
+    \item \textbf{应用逻辑层}：时间计时、UI渲染、计步算法、菜单逻辑、蓝牙协议解析等业务功能。
+\end{enumerate}
+
+\subsubsection{FreeRTOS多任务设计}
+系统共创建5个不同优先级的任务，按优先级从高到低排列，高优先级任务可抢占低优先级任务：
+\begin{table}[htbp]
+\centering
+\caption{FreeRTOS任务分配表}
+\label{tab:rtos_task}
+\begin{tabular}{llcl}
+\toprule
+任务名称 & 功能 & 优先级 & 执行周期 \\
+\midrule
+TaskTimeKeep & 系统计时、时间更新、发送时间数据 & 高(4) & 1s精确周期 \\
+TaskSensor & MPU6050数据读取、姿态解算、计步检测 & 较高(3) & 200ms周期 \\
+TaskDisplay & 获取数据、加I2C锁、OLED屏幕UI渲染 & 普通(2) & 信号量触发 \\
+TaskMenu & 编码器输入检测、菜单逻辑处理 & 普通(1) & 20ms周期 \\
+TaskBluetooth & 蓝牙数据收发、指令解析、数据上报 & 较低(0) & 100ms周期 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+任务间同步互斥机制：
+\begin{itemize}
+    \item \textbf{互斥锁mutexI2C}：保护共享I2C总线，防止多任务同时访问OLED/MPU6050导致总线死锁；
+    \item \textbf{二进制信号量semDisplayUpdate}：传感器或时间数据更新后释放信号量，触发显示任务刷新屏幕，避免无效轮询；
+    \item \textbf{消息队列}：queueTimeUpdate、queueSensorData、queueMenuMsg、queueBtCmd分别在任务间传递时间、传感器、菜单操作、蓝牙指令数据，实现任务解耦。
+\end{itemize}
+
+\subsubsection{关键算法实现}
+\paragraph{互补滤波姿态解算}
+MPU6050加速度计静态角度准确但动态噪声大，陀螺仪动态响应快但存在积分漂移，采用一阶互补滤波融合两者数据：
+\begin{equation}
+\theta = 0.98 \cdot (\theta_{gyro} + \omega \cdot dt) + 0.02 \cdot \theta_{accel}
+\end{equation}
+其中$\theta_{accel} = \mathrm{atan2}(a_y, a_z) \cdot 57.2958$为加速度计计算的俯仰角，$\omega$为陀螺仪X轴角速度，$dt=0.01s$为采样周期。
+
+\paragraph{峰值检测计步算法}
+基于三轴加速度合成幅值的动态阈值峰值检测实现计步：
+\begin{enumerate}
+    \item 计算三轴加速度合成幅值$a_{mag} = \sqrt{a_x^2 + a_y^2 + a_z^2}$；
+    \item IIR一阶低通滤波$a_{filter} = 0.1 \cdot a_{mag} + 0.9 \cdot a_{filter}$滤除高频噪声；
+    \item 当滤波后加速度超过阈值1.1g，且距离上一次计步超过200ms（最快300步/分钟），则判定为有效步数并计数。
+\end{enumerate}
+
+\paragraph{自定义蓝牙通信协议}
+采用固定帧结构保证通信可靠性，具备校验机制：
+\begin{center}
+\ttfamily STX(0xAA) + CMD + LEN + DATA + CHK + ETX(0x55)
+\end{center}
+支持传感器数据上报(0x03)、步数上报(0x02)、时间同步(0x01)等指令，CHK为CMD与LEN异或校验。
+
+\subsubsection{核心代码示例}
+以下为FreeRTOS初始化与任务创建核心代码：
+\begin{lstlisting}[language=C, caption=FreeRTOS初始化核心代码]
+void MX_FREERTOS_Init(void) {
+  // 创建I2C互斥锁，保护共享总线
+  osMutexDef(mutexI2C);
+  mutexI2CHandle = osMutexCreate(osMutex(mutexI2C));
+  // 创建显示刷新二进制信号量
+  osSemaphoreDef(semDisplayUpdate);
+  semDisplayUpdateHandle = osSemaphoreCreate(osSemaphore(semDisplayUpdate), 1);
+  // 创建各消息队列
+  osMessageQDef(queueSensorData, 4, 40);
+  queueSensorDataHandle = osMessageCreate(osMessageQ(queueSensorData), NULL);
+  // 创建5个任务，按优先级分配栈大小
+  osThreadDef(taskTimeKeep, vTask_TimeKeep, osPriorityHigh, 0, 256);
+  taskTimeKeepHandle = osThreadCreate(osThread(taskTimeKeep), NULL);
+  osThreadDef(taskSensor, vTask_Sensor, osPriorityAboveNormal, 0, 512);
+  taskSensorHandle = osThreadCreate(osThread(taskSensor), NULL);
+  osThreadDef(taskDisplay, vTask_Display, osPriorityNormal, 0, 1024);
+  taskDisplayHandle = osThreadCreate(osThread(taskDisplay), NULL);
+}
+\end{lstlisting}
+
+% ==================== 第4章 功能展示（王宇哲侧重测试） ====================
+\section{功能展示}
+\subsection{功能测试方案}
+本人作为测试负责人，制定了分阶段测试方案，设计了详细测试用例：
+\begin{enumerate}
+    \item \textbf{模块独立测试}：每个驱动开发完成后进行独立功能测试，验证寄存器读写、数据正确性、边界条件；
+    \item \textbf{集成测试}：每新增一个模块进行总线集成测试，验证I2C共享、中断优先级、DMA无冲突；
+    \item \textbf{系统测试}：FreeRTOS全部任务运行后进行长时间稳定性测试、功能边界测试、异常场景测试；
+    \item \textbf{问题回归测试}：每个bug修复后进行回归验证，确保修复有效且不引入新问题。
+\end{enumerate}
+
+\subsection{功能测试结果}
+项目全部核心功能均已实现并通过测试：
+\begin{table}[htbp]
+\centering
+\caption{功能测试用例与结果}
+\begin{tabular}{lll}
+\toprule
+测试项 & 测试方法 & 测试结果 \\
+\midrule
+OLED显示 & 上电初始化、字符刷新、清屏、多页面切换 & ✅ 通过，无花屏残影闪烁 \\
+MPU6050 & WHO\_AM\_I校验、静态角度、动态转动、温度 & ✅ 通过，数据准确平滑 \\
+蓝牙通信 & 手机配对、数据发送、指令接收、远距离测试 & ✅ 通过，8米内连接稳定 \\
+编码器 & 正反转、短按长按、快速旋转、消抖测试 & ✅ 通过，计数准确无跳变 \\
+多任务调度 & 连续运行2小时、高优先级抢占、栈水位检测 & ✅ 通过，无死机复位 \\
+计步功能 & 慢走、快走、静止、晃动测试100步 & ✅ 通过，准确率约90\% \\
+电源系统 & 充电测试、负载测试、锂电池供电、纹波测量 & ✅ 通过，3.3V输出稳定 \\
+自动熄屏 & 10秒无操作熄屏、按键唤醒 & ✅ 通过，功能正常 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{实物展示}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/项目完整成果.jpg}
+\caption{项目整机实物图}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/最终成果_总览页.jpg}
+\caption{时间显示主页面}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/最终成果_计步页.jpg}
+\caption{计步数据页面}
+\end{minipage}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/MPU模块.jpg}
+\caption{MPU6050传感器模块}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/最终成果_设置menu.jpg}
+\caption{设置菜单页面}
+\end{minipage}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/蓝牙模块1.jpg}
+\caption{HC-04蓝牙模块}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/MPU模块2.jpg}
+\caption{传感器数据显示页面}
+\end{minipage}
+\end{figure}
+
+\subsection{测试数据}
+\begin{itemize}
+    \item 系统连续运行2小时无死机、无复位，多任务调度稳定，任务栈水位均在安全范围；
+    \item 蓝牙通信距离可达8米，隔墙仍可稳定接收数据，1小时测试无丢包；
+    \item 角度静态误差小于±1°，动态响应延迟小于200ms，转动时无明显滞后；
+    \item 整机正常工作电流约30mA，熄屏电流约15mA，符合设计预期；
+    \item 计步测试：行走100步计数92步，准确率92\%，静止时无误触发。
+\end{itemize}
+
+% ==================== 第5章 物料与成本 ====================
+\section{物料与成本}
+\subsection{物料清单}
+\begin{table}[htbp]
+\centering
+\caption{项目物料清单与成本}
+\label{tab:bom}
+\begin{tabular}{cllcc}
+\toprule
+序号 & 物料名称 & 型号/规格 & 数量 & 小计(元) \\
+\midrule
+1 & 主控板 & STM32F103C8T6最小系统板 & 2 & 30.00 \\
+2 & 显示屏 & 0.96寸SSD1306 I2C OLED & 3 & 30.00 \\
+3 & 陀螺仪 & MPU6050 GY-521模块 & 1 & 5.00 \\
+4 & 蓝牙模块 & HC-04主从一体 & 1 & 5.00 \\
+5 & 旋转编码器 & EC11带按键 & 1 & 2.00 \\
+6 & LDO稳压 & AMS1117-3.3V & 1 & 1.50 \\
+7 & 充电模块 & TP4056 Micro USB & 1 & 3.00 \\
+8 & 面包板 & 5×7cm & 1 & 3.00 \\
+9 & 杜邦线 & 公母各20根 & 1套 & 3.00 \\
+10 & 阻容元件 & 电阻电容多种规格 & 若干 & 12.00 \\
+11 & PMOS管 & AO3401 & 1 & 0.21 \\
+12 & 下载器 & ST-Link V2 & 1 & 8.00 \\
+\midrule
+\multicolumn{4}{r}{\textbf{项目总成本}} & \textbf{102.71元} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{物料损耗记录}
+项目开发过程中无重大物料损坏，仅初期因接线错误反接电源烧毁1片AMS1117稳压芯片，更换后正常工作，损耗成本约1.5元。所有物料均按时到货，无延期情况。
+
+% ==================== 第6章 个人贡献（王宇哲） ====================
+\section{个人贡献}
+\subsection{分工说明}
+本人担任小组测试负责人，同时负责物料采购工作，廖俊帆负责软件架构与核心代码开发，朱玺望担任组长负责硬件设计、项目管理与文档工作。
+
+\subsection{物料采购工作}
+\begin{enumerate}
+    \item 项目启动当天完成物料清单确认，对比多家淘宝店铺价格与发货速度，选择最优供应商完成下单；
+    \item 物料到货后逐一清点验收，核对型号、数量、外观，测试所有模块是否能正常通电；
+    \item 预留了备用主控板与OLED屏幕，防止开发过程中意外损坏影响进度，事实证明备用件在AMS1117烧毁时起到了作用。
+\end{enumerate}
+
+\subsection{测试工作}
+\begin{enumerate}
+    \item 制定了完整的分阶段测试计划，设计了各模块测试用例，建立了bug跟踪表；
+    \item 完成了每个模块开发后的独立功能测试，记录测试结果与发现的bug，提交给开发人员修复；
+    \item 负责蓝牙模块的AT配置与功能测试，使用手机蓝牙串口助手验证蓝牙数据收发、指令解析功能；
+    \item 进行了系统长时间稳定性测试，连续运行2小时监测系统是否死机、复位、数据异常；
+    \item 进行了计步功能实际测试，通过行走100步统计计步准确率，协助调整计步阈值参数；
+    \item 每个bug修复后进行回归测试，确认bug已修复且没有引入新问题。
+\end{enumerate}
+
+\subsection{编码与调试工作}
+\begin{enumerate}
+    \item ：独立编写了SSD1306 OLED显示驱动（初始化、字符显示、清屏、光标设置）、MPU6050传感器驱动（寄存器配置、数据读取）与互补滤波姿态解算算法；
+    \item 参与了蓝牙模块驱动开发，编写了蓝牙数据帧解析与指令处理代码，实现了环形缓冲区接收；
+    \item 协助进行了FreeRTOS任务调试，测试了不同优先级下的任务调度情况，发现了显示任务栈溢出问题；
+    \item 参与了计步算法参数调优，通过实际行走测试调整滤波系数与检测阈值，减少误触发；
+    \item 协助排查硬件接线问题，使用万用表测量电路电压、通断，排查出初期I2C接线虚接问题。
+\end{enumerate}
+
+\subsection{资金投入}
+本人垫付了全部物料采购费用共计102.71元，后由小组三人平摊，每人约34元。
+
+\subsection{开发中遇到的问题与解决方案}
+\begin{enumerate}
+    \item \textbf{MPU6050不响应问题}：更换备用MPU6050后正常工作，判断为原元器件故障问题；
+    \item \textbf{蓝牙数据丢包问题}：初期使用阻塞式串口接收，在多任务环境下经常丢包，配置USART1 DMA循环接收+环形缓冲区后解决；
+    \item \textbf{计步误触发问题}：静止晃动手表时偶尔出现误计步，通过提高检测阈值到1.1g、增加最小步间隔200ms限制解决；
+    \item \textbf{编码器计数抖动问题}：快速旋转编码器时计数跳变，在硬件A/B相添加100nF滤波电容配合软件计数消抖后解决。
+\end{enumerate}
+
+% ==================== 第7章 项目成果与反思（王宇哲） ====================
+\section{项目成果与反思}
+\subsection{项目成果}
+项目按计划完成了全部预期功能，硬件稳定、软件可靠，所有测试用例通过率100%，达到了课程设计要求。本人负责的物料采购按时完成，没有出现物料延期；测试工作覆盖全面，共发现并协助修复了8个bug，保证了项目质量。
+
+\subsection{项目成功之处}
+\begin{enumerate}
+    \item 物料采购及时，预留备用件，为开发争取了时间，没有出现物料短缺或延期影响进度的情况；
+    \item 测试工作分阶段进行，bug发现及时，每个模块测试通过后才集成，没有在最后集成阶段堆积大量问题；
+    \item 蓝牙模块通信稳定，AT配置正确，为后续功能扩展打下了良好基础；
+    \item 小组分工明确，测试与开发分离，有效提升了代码质量。
+\end{enumerate}
+
+\subsection{存在的不足}
+\begin{enumerate}
+    \item 测试用例设计还不够全面，异常场景、边界条件测试覆盖不足，比如低电压、强干扰场景未测试；
+    \item 没有进行自动化测试，全部依赖人工测试，重复测试效率较低；
+    \item 蓝牙协议测试不够充分，异常断连、数据校验失败等异常情况处理还有待加强；
+    \item 性能测试不够深入，没有精确测量各任务执行时间、CPU利用率等指标。
+\end{enumerate}
+
+\subsection{个人反思与改进方向}
+通过本次嵌入式系统课程设计，我系统学习了嵌入式项目测试方法，理解了模块化测试与集成测试的重要性，掌握了蓝牙模块AT配置与通信调试方法，
+学会了使用万用表进行硬件电路排查，团队协作能力也得到了锻炼。
+后续改进方向：
+\begin{enumerate}
+    \item 学习嵌入式自动化测试框架，编写单元测试用例，提升测试效率与覆盖率；
+    \item 深入学习蓝牙低功耗(BLE)协议栈，实现更复杂、更省电的蓝牙功能；
+    \item 加强硬件调试能力，学习使用示波器、逻辑分析仪等工具排查时序问题；
+    \item 学习性能测试方法，测量系统实时性指标，优化任务调度。
+\end{enumerate}
+
+% ==================== 第8章 附录 ====================
+\section{附录}
+\subsection{核心代码清单}
+项目主要源文件：
+\begin{table}[htbp]
+\centering
+\begin{tabular}{ll}
+\toprule
+文件名 & 功能说明 \\
+\midrule
+main.c & 主函数，硬件初始化与FreeRTOS调度器启动 \\
+freertos.c & FreeRTOS任务创建、各任务功能实现、UI渲染、计步算法 \\
+ssd1306.c/h & OLED显示驱动，I2C写命令/数据、字符显示 \\
+mpu6050.c/h & MPU6050传感器驱动、寄存器配置、互补滤波姿态解算 \\
+bluetooth.c/h & 蓝牙通信驱动、DMA接收、自定义帧协议解析 \\
+encoder.c/h & EC11编码器驱动、正交计数、按键检测消抖 \\
+menu.c/h & 菜单逻辑、页面切换、光标处理 \\
+timekeep.c/h & 系统计时、时间自增逻辑 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{参考文献}
+\begin{thebibliography}{99}
+\bibitem{ref1} 刘火良, 杨森. STM32库开发实战指南：基于STM32F103[M]. 机械工业出版社, 2019.
+\bibitem{ref2} 正点原子. STM32F103开发指南-HAL库版本[M]. 正点原子, 2021.
+\bibitem{ref3} 理查德·巴里. FreeRTOS内核实现与应用开发实战指南[M]. 机械工业出版社, 2019.
+\bibitem{ref4} InvenSense Inc. MPU-6000 and MPU-6050 Product Specification Revision 3.4[EB/OL]. 2013.
+\bibitem{ref5} 王田苗, 胡建军. 嵌入式系统设计与实例开发[M]. 清华大学出版社, 2020.
+\bibitem{ref6} 张洋, 刘军. 原子教你玩STM32[M]. 北京航空航天大学出版社, 2018.
+\end{thebibliography}
+
+\end{document}
